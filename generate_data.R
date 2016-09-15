@@ -1,4 +1,7 @@
-## simulate data from 2 matching markets
+## ---------------------------------------------------------
+## --- R script to simulate data from 2 matching markets ---
+## ---------------------------------------------------------
+
 
 rm(list=ls())
 library(matchingMarkets)
@@ -48,7 +51,7 @@ y
 
 ## make into orginal variables
 kifir2015 <- with(y, data.frame(azon = 10080602957 + nrow(y)*m.id + s.id,
-                                TAG_ID = 2378 + c.id,
+                                TAG_ID = 2378 + nrow(y)*m.id + c.id,
                                 ISK_OMKOD = ifelse(m.id==1, 
                                                    ifelse(c.id==3, "027446", "028001"),
                                                    ifelse(c.id==3, "027553", "029553")),
@@ -62,7 +65,7 @@ kifir2015 <- with(y, data.frame(azon = 10080602957 + nrow(y)*m.id + s.id,
 ## write resulting files
 
 getwd()
-setwd("~/Documents/Research/SchoolChoice/EducationAuthority/example/")
+setwd("~/Documents/Research/Matching/kifir/")
 
 ## KIFIR
 write.table(kifir2015[,names(kifir2015) != "jaras_kod"], file="kifir2015.dat", sep="\t", quote=FALSE, 
@@ -70,13 +73,16 @@ write.table(kifir2015[,names(kifir2015) != "jaras_kod"], file="kifir2015.dat", s
 
 ## NABC, 10th grade
 nabc2015_10 <- kifir2015[kifir2015$FELVETTEK==1,]
-nabc2015_10 <- with(nabc2015_10, data.frame(OMid=ISK_OMKOD, tipus=4, stringsAsFactors=FALSE))
-write.table(nabc2015_10, file="10_evfolyam_tanuloi_adatok.dat", sep="\t", quote=FALSE, 
+nabc2015_10 <- with(nabc2015_10, data.frame(OMid=ISK_OMKOD, 
+                                            jaras_kod=jaras_kod,
+                                            tipus=4, stringsAsFactors=FALSE))
+write.table(nabc2015_10, file="10_evfolyam_telephelyi_adatok.dat", sep="\t", quote=FALSE, 
           fileEncoding="iso-8859-1", row.names=FALSE)
 
 ## NABC, 8th grade
 nabc2015_8 <- kifir2015[kifir2015$FELVETTEK==1,]
-nabc2015_8 <- with(nabc2015_8, data.frame(azon=azon, jaras_kod=jaras_kod, tipus=1, stringsAsFactors=FALSE))
+nabc2015_8 <- with(nabc2015_8, data.frame(azon=azon,  
+                                          tipus=1, stringsAsFactors=FALSE))
 write.table(nabc2015_8, file="8_evfolyam_tanuloi_adatok.dat", sep="\t", quote=FALSE, 
             fileEncoding="iso-8859-1", row.names=FALSE)
 

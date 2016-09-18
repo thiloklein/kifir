@@ -9,13 +9,17 @@
 ## --- set your working directory where data is located
 rm(list=ls())
 setwd("~/Documents/Research/Matching/kifir/")
+source("http://klein.uk/R/myfunctions.R")
 
 ## --- 1-a. read 2015 NABC (10th grade) to restrict analysis to 4 grade grammar schools.
-nabc2015_10 <- read.csv("10_evfolyam_telephelyi_adatok.dat", 
+nabc2015_10 <- read.csv("input/10_evfolyam_telephelyi_adatok.dat", 
                         dec = ",", sep="\t", fileEncoding="iso-8859-1", stringsAsFactors=FALSE)
 nabc2015_10 <- nabc2015_10[nabc2015_10$tipus == 4,]
 nabc2015_10 <- nabc2015_10[!duplicated(nabc2015_10$OMid),]
 nabc2015_10 <- nabc2015_10[, which(names(nabc2015_10) %in% c("OMid","jaras_kod","tipus"))]
+
+str(nabc2015_10)
+showNAs(nabc2015_10)
 
 # variables used::
 #tipus     : grammar school with 4 grades
@@ -25,10 +29,13 @@ nabc2015_10 <- nabc2015_10[, which(names(nabc2015_10) %in% c("OMid","jaras_kod",
 
 ## --- 1-b. read 2015 NABC (8th grade) to restrict analysis to primary school students 
 ##          and define school markets (jaras_kod).
-nabc2015_8 <- read.csv("8_evfolyam_tanuloi_adatok.dat", 
+nabc2015_8 <- read.csv("input/8_evfolyam_tanuloi_adatok.dat", 
                        dec = ",", sep="\t", fileEncoding="iso-8859-1", stringsAsFactors=FALSE)
 names(nabc2015_8)[names(nabc2015_8) == "ï..azon"] <- "azon"
 nabc2015_8 <- nabc2015_8[, which(names(nabc2015_8) %in% c("azon","tipus"))]
+
+str(nabc2015_8)
+showNAs(nabc2015_8)
 
 # variables used::
 #tipus     : primary school
@@ -36,12 +43,15 @@ nabc2015_8 <- nabc2015_8[, which(names(nabc2015_8) %in% c("azon","tipus"))]
 
 
 ## --- 1-c. read 2015 KIFIR.
-kifir2015 <- read.csv("kifir2015.dat", dec = ",", sep="\t", 
+kifir2015 <- read.csv("input/kifir2015.dat", dec = ",", sep="\t", 
                       fileEncoding="iso-8859-1", stringsAsFactors=FALSE)
 names(kifir2015)[names(kifir2015) == "ï..azon"] <- "azon"
 kifir2015 <- kifir2015[kifir2015$DIAKSTATUSZ == "F",
                        which(names(kifir2015) %in% 
                                c("azon","TAG_ID","ISK_OMKOD","JEL_SORSZ","DIAKSORSZTAG","FELVETTEK"))]
+
+str(kifir2015)
+showNAs(kifir2015)
 
 # variables used::
 #DIAKSTATUSZ == "F" : only use student preferences if college finds student acceptable
@@ -67,13 +77,19 @@ kifir2015 <- left_join(x = kifir2015, y = nabc2015_10, by = c("ISK_OMKOD" = "OMi
 kifir2015 <- kifir2015[!is.na(kifir2015$tipus),] 
 kifir2015$tipus <- NULL
 
+str(kifir2015)
+showNAs(kifir2015)
+
 ## --- 2-b. restrict KIFIR to current 'primary school' students
 kifir2015 <- left_join(x = kifir2015, y = nabc2015_8, by = "azon")
 kifir2015 <- kifir2015[!is.na(kifir2015$tipus) & kifir2015$tipus == 1,] 
 kifir2015$tipus <- NULL
 
-## --- 2-c. use KIFIR for school districts 1 and 2 only
-kifir2015 <- kifir2015[kifir2015$jaras_kod %in% c(1,2),]
+str(kifir2015)
+showNAs(kifir2015)
+
+## --- 2-c. use KIFIR for school districts 1 to 5 only
+kifir2015 <- kifir2015[kifir2015$jaras_kod %in% 1:5,]
 
 
 ## -------------------------------------------
@@ -83,6 +99,7 @@ kifir2015 <- kifir2015[kifir2015$jaras_kod %in% c(1,2),]
 ##          (and all students admitted to them)
 
 kifir2015 <- split(kifir2015, kifir2015$jaras_kod)
+do.call(data.frame,lapply(kifir2015, nrow))
 
 ## for each market (jaras_kod): drop students (azon) not matched to any school site (TAG_ID)
 kifir2015 <- lapply(kifir2015, function(z){
@@ -90,6 +107,7 @@ kifir2015 <- lapply(kifir2015, function(z){
   student.ids <- with(z, unique(azon[FELVETTEK == 1]))
   z[z$azon %in% student.ids,]
 })
+do.call(data.frame,lapply(kifir2015, nrow))
 
 ## for each market (jaras_kod): drop school sites (TAG_ID) not matched to any student (azon)
 kifir2015 <- lapply(kifir2015, function(z){
@@ -97,6 +115,7 @@ kifir2015 <- lapply(kifir2015, function(z){
   college.ids <- with(z, unique(TAG_ID[FELVETTEK == 1]))
   z[z$TAG_ID %in% college.ids,]
 })
+do.call(data.frame,lapply(kifir2015, nrow))
 
 
 ## --- 3-b. add s.id and c.id based on 'azon' and 'TAG_ID'
@@ -125,7 +144,7 @@ s.prefs <- lapply(kifir2015, function(d){
   do.call(cbind,s.prefs)
 })
 
-## sort data by s.id and JEL_SORSZ
+## sort data by c.id and DIAKSORSZTAG
 kifir2015 <- lapply(kifir2015, function(z){
   with(z, z[order(c.id,DIAKSORSZTAG),])
 })
@@ -158,7 +177,7 @@ for(i in 1:length(nSlots)){
   ## add to edge list: jaras_kod, OMid, azon
   
   res[[i]]$jaras_kod <- kifir2015[[i]]$jaras_kod[1]
-  res[[i]]$OMid      <- kifir2015[[i]]$ISK_OMKOD[ match(res[[i]]$college, kifir2015[[i]]$c.id) ]
+  res[[i]]$OM_kod      <- kifir2015[[i]]$ISK_OMKOD[ match(res[[i]]$college, kifir2015[[i]]$c.id) ]
   res[[i]]$TAG_ID    <- kifir2015[[i]]$TAG_ID[ match(res[[i]]$college, kifir2015[[i]]$c.id) ]
   res[[i]]$azon      <- kifir2015[[i]]$azon[ match(res[[i]]$student, kifir2015[[i]]$s.id) ]
   
@@ -185,7 +204,7 @@ res
 ## --- 4. Checks and return results ---
 
 getwd()
-write.table(do.call("rbind", res), file="res.dat", sep="\t", quote=FALSE, 
+write.table(do.call("rbind", res), file="output/res.dat", sep="\t", quote=FALSE, 
             fileEncoding="iso-8859-1", row.names=FALSE)
 
 

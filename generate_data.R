@@ -3,7 +3,12 @@
 ## ---------------------------------------------------------
 
 
+## set working directory
+getwd()
+setwd("~/Documents/Research/Matching/kifir/")
 rm(list=ls())
+
+## get matchings from two simulated matching markets
 library(matchingMarkets)
 
 x <- list()
@@ -64,29 +69,39 @@ kifir2015 <- with(y, data.frame(azon = 10080602957 + nrow(y)*m.id + s.id,
 
 ## write resulting files
 
-getwd()
-setwd("~/Documents/Research/Matching/kifir/")
+## 2015 KIFIR
+write.table(kifir2015[,names(kifir2015) != "jaras_kod"], file="input/kifir2015.dat", 
+            sep="\t", quote=FALSE, fileEncoding="iso-8859-1", row.names=FALSE)
 
-## KIFIR
-write.table(kifir2015[,names(kifir2015) != "jaras_kod"], file="kifir2015.dat", sep="\t", quote=FALSE, 
-            fileEncoding="iso-8859-1", row.names=FALSE)
-
-## NABC, 10th grade
+## 2015 NABC, 10th grade
 nabc2015_10 <- kifir2015[kifir2015$FELVETTEK==1,]
-nabc2015_10 <- with(nabc2015_10, data.frame(OMid=ISK_OMKOD, 
+nabc2015_10 <- with(nabc2015_10, data.frame(OMid=ISK_OMKOD,
                                             jaras_kod=jaras_kod,
                                             tipus=4, stringsAsFactors=FALSE))
-write.table(nabc2015_10, file="10_evfolyam_telephelyi_adatok.dat", sep="\t", quote=FALSE, 
+write.table(nabc2015_10, file="input/10_evfolyam_telephelyi_adatok.dat", sep="\t", quote=FALSE, 
           fileEncoding="iso-8859-1", row.names=FALSE)
 
-## NABC, 8th grade
+## 2015 NABC, 8th grade
 nabc2015_8 <- kifir2015[kifir2015$FELVETTEK==1,]
 nabc2015_8 <- with(nabc2015_8, data.frame(azon=azon,  
                                           tipus=1, stringsAsFactors=FALSE))
-write.table(nabc2015_8, file="8_evfolyam_tanuloi_adatok.dat", sep="\t", quote=FALSE, 
+write.table(nabc2015_8, file="input/8_evfolyam_tanuloi_adatok.dat", sep="\t", quote=FALSE, 
             fileEncoding="iso-8859-1", row.names=FALSE)
 
+## TAG to OMid-telephely correspondence table for secondary schools
+tag_ids <- with(kifir2015, data.frame(OMid=ISK_OMKOD,
+                                      telephely=as.integer(as.factor(TAG_ID)),
+                                      TAG_ID=TAG_ID))
+write.table(tag_ids[!duplicated(tag_ids),], file="input/tag_ids.dat", sep="\t", quote=FALSE, 
+            fileEncoding="iso-8859-1", row.names=FALSE)
 
+## 2014 KIFIR
+kifir2014 <- kifir2015[, which(names(kifir2015) %in% c("TAG_ID","FELVETTEK"))]
+set.seed(1)
+h <- floor(runif(length(unique(kifir2014$TAG_ID)), min=3, max=6))
+kifir2014$tgl_letszam <- h[as.integer(as.factor(kifir2014$TAG_ID))]
+write.table(kifir2014, file="input/kifir2014.dat", sep="\t", quote=FALSE, 
+            fileEncoding="iso-8859-1", row.names=FALSE)
 
 
 

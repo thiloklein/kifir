@@ -15,9 +15,6 @@ x <- list()
 x[[1]] <- hri(nStudents=10, nSlots=c(3,3,3), seed=54, s.range=c(2,3))
 x[[2]] <- hri(nStudents=7, nSlots=c(3,3,3), seed=100, s.range=c(1,3))
 
-x[[1]]
-x[[2]]
-
 matrix2edgelist <- function(x, i){
 
   ## number of students and colleges
@@ -52,7 +49,7 @@ for(i in 1:length(x)){
   y[[i]] <- matrix2edgelist(x=x[[i]], i=i)
 }
 y <- do.call(rbind, y)
-y
+
 
 ## make into orginal variables
 kifir2015 <- with(y, data.frame(azon = 10080602957 + nrow(y)*m.id + s.id,
@@ -64,19 +61,25 @@ kifir2015 <- with(y, data.frame(azon = 10080602957 + nrow(y)*m.id + s.id,
                                 DIAKSORSZTAG = c.prefs,
                                 DIAKSTATUSZ = ifelse(is.na(c.prefs), "E", "F"),
                                 FELVETTEK = sOptimal,
-                                jaras_kod = m.id, stringsAsFactors=FALSE
+                                jaras_kod = m.id, 
+                                #megye_kod = m.id, 
+                                #regio_kod = m.id, 
+                                stringsAsFactors=FALSE
 ))
 
 ## write resulting files
 
 ## 2015 KIFIR
-write.table(kifir2015[,names(kifir2015) != "jaras_kod"], file="input/kifir2015.dat", 
+write.table(kifir2015[,!names(kifir2015) %in% c("jaras_kod","megye_kod","regio_kod")], file="input/kifir2015.dat", 
             sep="\t", quote=FALSE, fileEncoding="iso-8859-1", row.names=FALSE)
 
 ## 2015 NABC, 10th grade
 nabc2015_10 <- kifir2015[kifir2015$FELVETTEK==1,]
 nabc2015_10 <- with(nabc2015_10, data.frame(OMid=ISK_OMKOD,
+                                            telephely=as.integer(as.factor(TAG_ID)),
                                             jaras_kod=jaras_kod,
+                                            #megye_kod=megye_kod,
+                                            #regio_kod=regio_kod,
                                             tipus=4, stringsAsFactors=FALSE))
 write.table(nabc2015_10, file="input/10_evfolyam_telephelyi_adatok.dat", sep="\t", quote=FALSE, 
           fileEncoding="iso-8859-1", row.names=FALSE)
@@ -89,10 +92,10 @@ write.table(nabc2015_8, file="input/8_evfolyam_tanuloi_adatok.dat", sep="\t", qu
             fileEncoding="iso-8859-1", row.names=FALSE)
 
 ## TAG to OMid-telephely correspondence table for secondary schools
-tag_ids <- with(kifir2015, data.frame(OMid=ISK_OMKOD,
+TAG2015 <- with(kifir2015, data.frame(OMid=ISK_OMKOD,
                                       telephely=as.integer(as.factor(TAG_ID)),
                                       TAG_ID=TAG_ID))
-write.table(tag_ids[!duplicated(tag_ids),], file="input/tag_ids.dat", sep="\t", quote=FALSE, 
+write.table(TAG2015[!duplicated(TAG2015),], file="input/TAG2015.dat", sep="\t", quote=FALSE, 
             fileEncoding="iso-8859-1", row.names=FALSE)
 
 ## 2014 KIFIR

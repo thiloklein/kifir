@@ -99,7 +99,7 @@ write.table(TAG2015[!duplicated(TAG2015),], file="input/TAG2015.dat", sep="\t", 
             fileEncoding="iso-8859-1", row.names=FALSE)
 
 ## 2014 KIFIR
-kifir2014 <- kifir2015[, which(names(kifir2015) %in% c("TAG_ID","FELVETTEK"))]
+kifir2014 <- kifir2015[, which(names(kifir2015) %in% c("TAG_ID","ISK_OMKOD","FELVETTEK"))]
 set.seed(1)
 h <- floor(runif(length(unique(kifir2014$TAG_ID)), min=3, max=6))
 kifir2014$tgl_letszam <- h[as.integer(as.factor(kifir2014$TAG_ID))]

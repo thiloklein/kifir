@@ -95,7 +95,8 @@ TAG2015     <- read.csv("input/TAG2015.dat", dec = ",", sep="\t",
 
 ## add OMid_telephely to KIFIR
 kifir2015 <- left_join(x = kifir2015, y = TAG2015, by = "TAG_ID")
-if( !all.equal(kifir2015$ISK_OMKOD, kifir2015$OMid) ){
+if( !isTRUE(all.equal(kifir2015$ISK_OMKOD, kifir2015$OMid)) ){
+  head(kifir2015)
   print("ISK_OMKOD != OMid !")
 }
 kifir2015$OMid_telephely <- with(kifir2015, paste(ISK_OMKOD, telephely, sep="_"))
@@ -104,7 +105,8 @@ kifir2015$telephely <- NULL
 
 ## merge kifir2015 and nabc2015_10 based on OMid_telephely
 kifir2015 <- left_join(x = kifir2015, y = nabc2015_10, by = "OMid_telephely")
-if( !all.equal(kifir2015$ISK_OMKOD, kifir2015$OMid) ){
+if( !isTRUE(all.equal(kifir2015$ISK_OMKOD, kifir2015$OMid)) ){
+  head(kifir2015)
   print("ISK_OMKOD != OMid !")
 }
 kifir2015$OMid <- NULL
@@ -139,12 +141,12 @@ do.call(data.frame,lapply(kifir2015, nrow))
 while(length(kifir2015)>0){
   
   ## --- Step 1: individual district stats 
-  kifirStats <- lapply(kifir2015, function(z){
+  kifirStats <- lapply(seq_along(kifir2015), function(i){
     x <- list()
-    x$applicant_ids <- unique(z$azon)
+    x$applicant_ids <- unique(kifir2015[[i]]$azon)
     x$applicant_no  <- length(x$applicant_ids)
-    x$admissions_no <- length(unique(z$azon[z$FELVETTEK==1]))
-    x$jaras_kod     <- z$jaras_kod[1]
+    x$admissions_no <- length(unique(kifir2015[[i]]$azon[kifir2015[[i]]$FELVETTEK==1]))
+    x$index         <- i
     x
   })
   
@@ -162,14 +164,14 @@ while(length(kifir2015)>0){
       
       ## edgelist
       if((i == j) & (i == 1)){
-        kifirEdgelist <- data.frame(A = kifirStats[[i]][["jaras_kod"]],
-                                    B = kifirStats[[j]][["jaras_kod"]],
+        kifirEdgelist <- data.frame(A = kifirStats[[i]][["index"]],
+                                    B = kifirStats[[j]][["index"]],
                                     overlap = overlap_perc, 
                                     admissions = admissions_ij)
       } else{
         kifirEdgelist <- rbind(kifirEdgelist, 
-                               data.frame(A = kifirStats[[i]][["jaras_kod"]],
-                                          B = kifirStats[[j]][["jaras_kod"]],
+                               data.frame(A = kifirStats[[i]][["index"]],
+                                          B = kifirStats[[j]][["index"]],
                                           overlap = overlap_perc, 
                                           admissions = admissions_ij))
       }
@@ -180,11 +182,14 @@ while(length(kifir2015)>0){
   kifirEdgelist <- kifirEdgelist[order(kifirEdgelist$overlap, decreasing=TRUE),]
   kifirEdgelist <- kifirEdgelist[kifirEdgelist$A != kifirEdgelist$B,]
   
+  ## check if kifirEdgelist is non-empty
+  if( nrow(kifirEdgelist)==0 ){ break }
+  
   ## check whether to stop because of too large joint district size
   if( min(kifirEdgelist[,"admissions"]) > max_size ){ break 
   } else{
     
-    ## drop district pairs with more than 'max_size' admitted students
+    ## drop district pairs with more than 3000 admitted students
     kifirEdgelist <- kifirEdgelist[kifirEdgelist$admissions < max_size,]
   }
   
@@ -192,16 +197,20 @@ while(length(kifir2015)>0){
   if(kifirEdgelist[1,"overlap"] < min_overlap){ break
   } else{
     
+    ## print result
+    print(paste("Merge districts: ", names(kifir2015)[ kifirEdgelist[1,"A"] ], 
+                " and ", names(kifir2015)[ kifirEdgelist[1,"B"] ], ".", sep=""))
+    
     ## merge the 2 top overlapping districts
-    kifir2015[[ as.character(kifirEdgelist[1,"A"]) ]] <- rbind( kifir2015[[ as.character(kifirEdgelist[1,"A"]) ]], 
-                                                                kifir2015[[ as.character(kifirEdgelist[1,"B"]) ]] )
+    kifir2015[[ kifirEdgelist[1,"A"] ]] <- rbind( kifir2015[[ kifirEdgelist[1,"A"] ]], 
+                                                  kifir2015[[ kifirEdgelist[1,"B"] ]] )
     ## rename the merged district
-    names(kifir2015)[[ which(names(kifir2015) == kifirEdgelist[1,"A"]) ]] <- with(kifirEdgelist[1,], paste(A, B, sep="_"))
-    
-    ## drop the other district
-    kifir2015[[ as.character(kifirEdgelist[1,"B"]) ]] <- NULL
-    
-    print(paste("Merge districts: ", kifirEdgelist[1,"A"], " and ", kifirEdgelist[1,"B"], ".", sep=""))
+    names(kifir2015)[ kifirEdgelist[1,"A"] ] <- with(kifirEdgelist[1,], 
+                                                     paste(names(kifir2015)[ kifirEdgelist[1,"A"] ], 
+                                                           names(kifir2015)[ kifirEdgelist[1,"B"] ], 
+                                                           sep="_"))
+    ## drop the other district    
+    kifir2015[[ names(kifir2015)[ kifirEdgelist[1,"B"] ] ]] <- NULL
   }
 }
 
@@ -288,9 +297,14 @@ library(matchingMarkets)
 
 res <- list()
 for(i in 1:length(nSlots)){  
-    
-  res[[i]] <- hri(s.prefs=s.prefs[[i]], c.prefs=c.prefs[[i]], nSlots=nSlots[[i]])$matchings
-
+  
+  res[[i]] <- tryCatch({
+    hri(s.prefs=s.prefs[[i]], c.prefs=c.prefs[[i]], nSlots=nSlots[[i]])$matchings
+  }, error=function(cond){
+    message(cond)
+    return(NULL)
+  })
+  
   ## add to edge list: jaras_kod/megye_kod/regio_kod, OM_kod, azon
   
   res[[i]][m.id]     <- kifir2015[[i]][,m.id][ match(res[[i]]$college, kifir2015[[i]]$c.id) ]
@@ -316,10 +330,9 @@ for(i in 1:length(nSlots)){
   res[[i]]$college  <- NULL
   
   if(i == 1){
-    print(paste("Generating stable matchings for ", length(nSlots), " districts ...", sep=""))
+    print(paste("Generating stable matchings for ", length(nSlots), " markets ...", sep=""))
   }
-  print(paste("District ", i, " of ", length(nSlots), " completed.", sep=""))
-  
+  print(paste("Market ", i, " of ", length(nSlots), " completed.", sep=""))
 }
 #res
 
@@ -328,6 +341,7 @@ for(i in 1:length(nSlots)){
 ## --- 5. Checks and return results ---
 
 getwd()
+res <- res[!sapply(res, is.null)] 
 write.table(do.call("rbind", res), file="output/res.dat", sep="\t", 
             quote=FALSE, fileEncoding="iso-8859-1", row.names=FALSE)
 

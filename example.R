@@ -14,46 +14,32 @@ m.id <- "jaras_kod"
 
 ## --- set parameters
 
-max_size    <- 2000
-min_overlap <- 0.01
+max_size    <- 1000
+min_overlap <- 0
 
 
-## --- 1-a. read 2015 NABC (10th grade) and TAG2015 to restrict analysis to 4 grade grammar schools.
+## --- 1-a. read 2015 NABC (10th grade) and TAG2015 to restrict analysis to 3-4 grade programmes
+##          and define school markets (jaras_kod).
 #install.packages("dplyr")
 library(dplyr)
 nabc2015_10 <- read.csv("input/10_evfolyam_telephelyi_adatok.dat", 
                         dec = ",", sep="\t", fileEncoding="iso-8859-1", stringsAsFactors=FALSE)
-nabc2015_10 <- nabc2015_10[nabc2015_10$tipus %in% c(4,5),]
-nabc2015_10$OMid_telephely <- with(nabc2015_10, paste(OMid, telephely, sep="_"))
-nabc2015_10 <- nabc2015_10[!duplicated(nabc2015_10$OMid_telephely),]
-nabc2015_10 <- nabc2015_10[, which(names(nabc2015_10) %in% c("OMid","telephely",m.id,"tipus","OMid_telephely"))]
+nabc2015_10 <- nabc2015_10[nabc2015_10$tipus %in% c(4,5,6),]
+nabc2015_10$OMid_telephely_tipus <- with(nabc2015_10, paste(OMid, telephely, tipus, sep="_"))
+nabc2015_10 <- nabc2015_10[!duplicated(nabc2015_10$OMid_telephely_tipus),]
+nabc2015_10 <- nabc2015_10[, which(names(nabc2015_10) %in% c("OMid","telephely",m.id,"tipus","OMid_telephely_tipus"))]
 
 str(nabc2015_10)
 showNAs(nabc2015_10)
 
 # variables used::
-#tipus     : grammar school with 4 grades
+#tipus     : school type
 #OMid      : school ID
 #telephely : school site ID
 #jaras_kod : district ID
 
 
-## --- 1-b. read 2015 NABC (8th grade) to restrict analysis to primary school students 
-##          and define school markets (jaras_kod).
-nabc2015_8 <- read.csv("input/8_evfolyam_tanuloi_adatok.dat", 
-                       dec = ",", sep="\t", fileEncoding="iso-8859-1", stringsAsFactors=FALSE)
-names(nabc2015_8)[names(nabc2015_8) == "ï..azon"] <- "azon"
-nabc2015_8 <- nabc2015_8[, which(names(nabc2015_8) %in% c("azon","tipus"))]
-
-str(nabc2015_8)
-showNAs(nabc2015_8)
-
-# variables used::
-#tipus     : primary school
-#azon      : student ID
-
-
-## --- 1-c. read 2015 KIFIR.
+## --- 1-b. read 2015 KIFIR.
 kifir2015 <- read.csv("input/kifir2015.dat", dec = ",", sep="\t", 
                       fileEncoding="iso-8859-1", stringsAsFactors=FALSE)
 names(kifir2015)[names(kifir2015) == "ï..azon"] <- "azon"
@@ -78,58 +64,55 @@ showNAs(kifir2015)
 #                                     3: student is assigned to the school
 
 
-## --- 1-d. read TAG IDs for 2015.
+## --- 1-c. read TAG IDs for 2015.
 TAG2015     <- read.csv("input/TAG2015.dat", dec = ",", sep="\t", 
                         fileEncoding="iso-8859-1", stringsAsFactors=FALSE)
 
 # variables used::
 #OMid      : school ID
 #telephely : school site ID
+#tipus     : school type
 #TAG_ID    : course ID
+
+str(TAG2015)
+showNAs(TAG2015)
 
 
 ## -------------------------
 ## --- 2. Merge datasets ---
 
-## --- 2-a. restrict KIFIR to the market for 4-grade programmes
+## --- 2-a. restrict 2015 KIFIR to schools in 2015 10th grade NABC
 
 ## add OMid_telephely to KIFIR
 kifir2015 <- left_join(x = kifir2015, y = TAG2015, by = "TAG_ID")
 if( !isTRUE(all.equal(kifir2015$ISK_OMKOD, kifir2015$OMid)) ){
-  head(kifir2015)
   print("ISK_OMKOD != OMid !")
 }
-kifir2015$OMid_telephely <- with(kifir2015, paste(ISK_OMKOD, telephely, sep="_"))
+kifir2015$OMid_telephely_tipus <- with(kifir2015, paste(ISK_OMKOD, telephely, tipus, sep="_"))
 kifir2015$OMid <- NULL
 kifir2015$telephely <- NULL
+kifir2015$tipus <- NULL
+
+str(kifir2015)
+showNAs(kifir2015)
 
 ## merge kifir2015 and nabc2015_10 based on OMid_telephely
-kifir2015 <- left_join(x = kifir2015, y = nabc2015_10, by = "OMid_telephely")
+kifir2015 <- left_join(x = kifir2015, y = nabc2015_10, by = "OMid_telephely_tipus")
 if( !isTRUE(all.equal(kifir2015$ISK_OMKOD, kifir2015$OMid)) ){
-  head(kifir2015)
   print("ISK_OMKOD != OMid !")
 }
+
+str(kifir2015)
+showNAs(kifir2015)
+
 kifir2015$OMid <- NULL
 
 ## drop NAs
 kifir2015 <- kifir2015[!is.na(kifir2015$tipus),] 
-kifir2015$tipus <- NULL
+#kifir2015$tipus <- NULL
 
 str(kifir2015)
 showNAs(kifir2015)
-
-
-## --- 2-b. restrict KIFIR to current 'primary school' students
-kifir2015 <- left_join(x = kifir2015, y = nabc2015_8, by = "azon")
-kifir2015 <- kifir2015[!is.na(kifir2015$tipus) & kifir2015$tipus == 1,] 
-kifir2015$tipus <- NULL
-
-str(kifir2015)
-showNAs(kifir2015)
-
-
-## --- 2-c. use KIFIR for school districts 1 to 5 only
-#kifir2015 <- kifir2015[kifir2015[m.id] %in% 1:5,]
 
 
 ## -----------------------------------------
@@ -249,9 +232,6 @@ kifir2015 <- lapply(kifir2015, function(z){
 
 ## --- 4-c. create preference matrices (s.prefs, c.prefs) based on 'JEL_SORSZ' and 'DIAKSORSZTAG'
 
-## drop markets with only one college
-kifir2015 <- kifir2015[ unlist(lapply(kifir2015, function(z) length(unique(z$c.id)) )) > 2]
-
 ## sort data by s.id and JEL_SORSZ
 kifir2015 <- lapply(kifir2015, function(z){
   with(z, z[order(s.id,JEL_SORSZ),])
@@ -307,20 +287,17 @@ for(i in 1:length(nSlots)){
   
   ## add to edge list: jaras_kod/megye_kod/regio_kod, OM_kod, azon
   
+  res[[i]]$m.id      <- i
   res[[i]][m.id]     <- kifir2015[[i]][,m.id][ match(res[[i]]$college, kifir2015[[i]]$c.id) ]
-  res[[i]]$OM_kod    <- kifir2015[[i]]$ISK_OMKOD[ match(res[[i]]$college, kifir2015[[i]]$c.id) ]
-  res[[i]]$telephely <- kifir2015[[i]]$telephely[ match(res[[i]]$college, kifir2015[[i]]$c.id) ]
   res[[i]]$TAG_ID    <- kifir2015[[i]]$TAG_ID[ match(res[[i]]$college, kifir2015[[i]]$c.id) ]
   res[[i]]$azon      <- kifir2015[[i]]$azon[ match(res[[i]]$student, kifir2015[[i]]$s.id) ]
-  
-  res[[i]] <- with(res[[i]], res[[i]][order(matching,college,slots),])
-  
+  res[[i]]           <- with(res[[i]], res[[i]][order(matching,college,slots),])
   res[[i]]$ids       <- with(res[[i]], paste(college,student,sep="_"))
   kifir2015[[i]]$ids <- with(kifir2015[[i]], paste(c.id,s.id,sep="_"))
   res[[i]]$ok        <- kifir2015[[i]]$FELVETTEK[ match(res[[i]]$ids, kifir2015[[i]]$ids) ]
   res[[i]]$ok        <- with(res[[i]], ifelse(sOptimal==1, ifelse(ok==0, 0, 1), 1))
-  kifir2015[[i]]$ids <- NULL; res[[i]]$ids <- NULL
   
+  res[[i]]$ids      <- NULL
   res[[i]]$sOptimal <- NULL
   res[[i]]$cOptimal <- NULL
   res[[i]]$slots    <- NULL
@@ -344,7 +321,6 @@ getwd()
 res <- res[!sapply(res, is.null)] 
 write.table(do.call("rbind", res), file="output/res.dat", sep="\t", 
             quote=FALSE, fileEncoding="iso-8859-1", row.names=FALSE)
-
 
 
 

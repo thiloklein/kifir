@@ -94,6 +94,7 @@ write.table(nabc2015_8, file="input/8_evfolyam_tanuloi_adatok.dat", sep="\t", qu
 ## TAG to OMid-telephely correspondence table for secondary schools
 TAG2015 <- with(kifir2015, data.frame(OMid=ISK_OMKOD,
                                       telephely=as.integer(as.factor(TAG_ID)),
+                                      tipus=4,
                                       TAG_ID=TAG_ID))
 write.table(TAG2015[!duplicated(TAG2015),], file="input/TAG2015.dat", sep="\t", quote=FALSE, 
             fileEncoding="iso-8859-1", row.names=FALSE)
